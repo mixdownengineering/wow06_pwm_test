@@ -1,0 +1,4 @@
+loadfile pwmtest.hex
+r
+go
+q
