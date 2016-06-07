@@ -212,7 +212,7 @@ void pwm_init(TIM_HandleTypeDef *htim)
 	memset(htim, 0, sizeof(*htim));
 
 	htim->Instance = TIM2;
-	htim->Init.Prescaler = 24;
+	htim->Init.Prescaler = 8;
 	htim->Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim->Init.Period = 2048;
 	htim->Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
