@@ -200,6 +200,7 @@ void pwm_set(TIM_HandleTypeDef *htim, uint32_t which, uint16_t val)
 	oc.Pulse = val;
 
 	HAL_TIM_PWM_ConfigChannel(htim, &oc, which);
+	HAL_TIM_PWM_Start(htim, which);
 }
 
 
@@ -213,7 +214,7 @@ void pwm_init(TIM_HandleTypeDef *htim)
 	htim->Instance = TIM2;
 	htim->Init.Prescaler = 24;
 	htim->Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim->Init.Period = 2000;
+	htim->Init.Period = 2048;
 	htim->Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	HAL_TIM_PWM_Init(htim);
 
@@ -229,13 +230,9 @@ void pwm_init(TIM_HandleTypeDef *htim)
 	HAL_TIMEx_MasterConfigSynchronization(htim, &tmcfg);
 #endif
 
-	HAL_TIM_PWM_Start(htim, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(htim, TIM_CHANNEL_2);
-	HAL_TIM_PWM_Start(htim, TIM_CHANNEL_3);
-
-	pwm_set(htim, TIM_CHANNEL_1, 1500);
-	pwm_set(htim, TIM_CHANNEL_2, 700);
-	pwm_set(htim, TIM_CHANNEL_3, 250);
+	pwm_set(htim, TIM_CHANNEL_1, 0);
+	pwm_set(htim, TIM_CHANNEL_2, 0);
+	pwm_set(htim, TIM_CHANNEL_3, 0);
 }
 
 
@@ -264,7 +261,9 @@ static void miscThread(void const *argument)
 		bool toggle;
 		osDelay(10);
 
-//		pwm_set(&htim, TIM_CHANNEL_1, x);
+		pwm_set(&htim, TIM_CHANNEL_1,         x        );
+		pwm_set(&htim, TIM_CHANNEL_2, (1024 + x) % 2048);
+		pwm_set(&htim, TIM_CHANNEL_3, (1536 + x) % 2048);
 
 		++x;
 		if (x >= 2000) {
