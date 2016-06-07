@@ -147,6 +147,7 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
 		gpio.Alternate = GPIO_AF1_TIM2;
 		HAL_GPIO_Init(GPIOA, &gpio);
 
+		/* turn the red LED on to let me know this function got called */
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_11, GPIO_PIN_RESET);
 	}
 }
@@ -178,10 +179,11 @@ void gpio_init(void)
 	gpio.Pin = GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
 	HAL_GPIO_Init(GPIOC, &gpio);
 
-	/* PD10..11 == LED1/2 */
+	/* PD10..11 == LED1/2, off by default */
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_10, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_11, GPIO_PIN_SET);
 
+	/* PD10..11 == LED1/2 */
 	gpio.Pin = GPIO_PIN_10 | GPIO_PIN_11;
 	HAL_GPIO_Init(GPIOD, &gpio);
 }
@@ -218,7 +220,7 @@ void pwm_init(TIM_HandleTypeDef *htim)
 	htim->Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	HAL_TIM_PWM_Init(htim);
 
-#if 1
+#if 0
 	memset(&tclkcfg, 0, sizeof(tclkcfg));
 	memset(&tmcfg, 0, sizeof(tmcfg));
 
@@ -258,26 +260,38 @@ static void miscThread(void const *argument)
 
 	x = 0;
 	while (1) {
-		bool toggle;
+		bool toggle, count_up, blink;
 		osDelay(10);
 
 		pwm_set(&htim, TIM_CHANNEL_1,         x        );
 		pwm_set(&htim, TIM_CHANNEL_2, (1024 + x) % 2048);
 		pwm_set(&htim, TIM_CHANNEL_3, (1536 + x) % 2048);
 
-		++x;
-		if (x >= 2000) {
-			x = 0;
+		if (count_up) {
+			x += 16;
+			if (x >= 2048) {
+				x = 2032;
+				count_up = false;
+			}
+		} else {
+			x -= 16;
+			if (x < 16) {
+				x = 16;
+				count_up = true;
+
+				toggle = ! toggle;
+				m1dir(toggle);
+			}
 		}
 
 
 		/* blinky */
 		if ((x % 10) == 0) {
-			if (toggle) {
-				toggle = false;
+			if (blink) {
+				blink = false;
 				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_10, GPIO_PIN_RESET);
 			} else {
-				toggle = true;
+				blink = true;
 				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_10, GPIO_PIN_SET);
 			}
 		}
