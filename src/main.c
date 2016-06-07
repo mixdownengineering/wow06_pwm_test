@@ -141,7 +141,7 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
 		 */
 		memset(&gpio, 0, sizeof(gpio));
 		gpio.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2;
-		gpio.Mode = GPIO_MODE_OUTPUT_PP;
+		gpio.Mode = GPIO_MODE_AF_PP;
 		gpio.Pull = GPIO_NOPULL;
 		gpio.Speed = GPIO_SPEED_HIGH;
 		gpio.Alternate = GPIO_AF1_TIM2;
@@ -265,10 +265,6 @@ static void miscThread(void const *argument)
 		osDelay(10);
 
 //		pwm_set(&htim, TIM_CHANNEL_1, x);
-
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
 
 		++x;
 		if (x >= 2000) {
