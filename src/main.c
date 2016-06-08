@@ -127,9 +127,11 @@ void HAL_MspInit(void)
 
 void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
 {
-	if (htim->Instance == TIM2) {
-		GPIO_InitTypeDef gpio;
+	GPIO_InitTypeDef gpio;
 
+	memset(&gpio, 0, sizeof(gpio));
+
+	if (htim->Instance == TIM2) {
 		__HAL_RCC_TIM2_CLK_ENABLE();
 		__HAL_RCC_GPIOA_CLK_ENABLE();
 
@@ -139,7 +141,6 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
 		 * PA1 - TIM2_CH2
 		 * PA2 - TIM2_CH3
 		 */
-		memset(&gpio, 0, sizeof(gpio));
 		gpio.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2;
 		gpio.Mode = GPIO_MODE_AF_PP;
 		gpio.Pull = GPIO_NOPULL;
@@ -147,8 +148,26 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
 		gpio.Alternate = GPIO_AF1_TIM2;
 		HAL_GPIO_Init(GPIOA, &gpio);
 
-		/* turn the red LED on to let me know this function got called */
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_11, GPIO_PIN_RESET);
+	} else if (htim->Instance == TIM3) {
+		__HAL_RCC_TIM3_CLK_ENABLE();
+		__HAL_RCC_GPIOA_CLK_ENABLE();
+		__HAL_RCC_GPIOB_CLK_ENABLE();
+
+		/*
+		 * TIM3 GPIO Configuration
+		 * PA6 - TIM3_CH1
+		 * PA7 - TIM3_CH2
+		 * PB0 - TIM3_CH3
+		 */
+		gpio.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+		gpio.Mode = GPIO_MODE_AF_PP;
+		gpio.Pull = GPIO_NOPULL;
+		gpio.Speed = GPIO_SPEED_HIGH;
+		gpio.Alternate = GPIO_AF2_TIM3;
+		HAL_GPIO_Init(GPIOA, &gpio);
+
+		gpio.Pin = GPIO_PIN_0;
+		HAL_GPIO_Init(GPIOB, &gpio);
 	}
 }
 
@@ -158,8 +177,10 @@ void gpio_init(void)
 	GPIO_InitTypeDef gpio;
 
 	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOC_CLK_ENABLE();
 	__HAL_RCC_GPIOD_CLK_ENABLE();
+	__HAL_RCC_GPIOE_CLK_ENABLE();
 
 	memset(&gpio, 0, sizeof(gpio));
 
@@ -170,13 +191,20 @@ void gpio_init(void)
 	gpio.Speed = GPIO_SPEED_LOW;
 	HAL_GPIO_Init(GPIOA, &gpio);
 
-	/* PC13..15 = PWM enables */
+	/* PB10..11 = M4/M5DIR */
+	gpio.Pin = GPIO_PIN_10 | GPIO_PIN_11;
+	HAL_GPIO_Init(GPIOB, &gpio);
+
+	/* PC6..8,13..15 = PWM enables */
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
 
-	/* PC4..5 = M2/M3DIR, PC13..15 = PWM enables */
-	gpio.Pin = GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+	/* PC4..8 = M2/M3DIR, M4/5/6EN, PC13..15 = PWM enables */
+	gpio.Pin = GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
 	HAL_GPIO_Init(GPIOC, &gpio);
 
 	/* PD10..11 == LED1/2, off by default */
@@ -186,6 +214,10 @@ void gpio_init(void)
 	/* PD10..11 == LED1/2 */
 	gpio.Pin = GPIO_PIN_10 | GPIO_PIN_11;
 	HAL_GPIO_Init(GPIOD, &gpio);
+
+	/* PE7 == M6DIR */
+	gpio.Pin = GPIO_PIN_7;
+	HAL_GPIO_Init(GPIOE, &gpio);
 }
 
 
@@ -206,23 +238,21 @@ void pwm_set(TIM_HandleTypeDef *htim, uint32_t which, uint16_t val)
 }
 
 
-void pwm_init(TIM_HandleTypeDef *htim)
+void pwm_init(TIM_HandleTypeDef *htim, TIM_TypeDef *which)
 {
 	TIM_ClockConfigTypeDef tclkcfg;
 	TIM_MasterConfigTypeDef tmcfg;
 
 	memset(htim, 0, sizeof(*htim));
+	memset(&tclkcfg, 0, sizeof(tclkcfg));
+	memset(&tmcfg, 0, sizeof(tmcfg));
 
-	htim->Instance = TIM2;
+	htim->Instance = which;
 	htim->Init.Prescaler = 8;
 	htim->Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim->Init.Period = 2048;
 	htim->Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	HAL_TIM_PWM_Init(htim);
-
-#if 0
-	memset(&tclkcfg, 0, sizeof(tclkcfg));
-	memset(&tmcfg, 0, sizeof(tmcfg));
 
 	tclkcfg.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
 	HAL_TIM_ConfigClockSource(htim, &tclkcfg);
@@ -230,7 +260,6 @@ void pwm_init(TIM_HandleTypeDef *htim)
 	tmcfg.MasterOutputTrigger = TIM_TRGO_RESET;
 	tmcfg.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
 	HAL_TIMEx_MasterConfigSynchronization(htim, &tmcfg);
-#endif
 
 	pwm_set(htim, TIM_CHANNEL_1, 0);
 	pwm_set(htim, TIM_CHANNEL_2, 0);
@@ -241,18 +270,22 @@ void pwm_init(TIM_HandleTypeDef *htim)
 void m1dir(bool val) { HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, (val) ? GPIO_PIN_SET : GPIO_PIN_RESET); }
 void m2dir(bool val) { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, (val) ? GPIO_PIN_SET : GPIO_PIN_RESET); }
 void m3dir(bool val) { HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, (val) ? GPIO_PIN_SET : GPIO_PIN_RESET); }
+void m4dir(bool val) { HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, (val) ? GPIO_PIN_SET : GPIO_PIN_RESET); }
+void m5dir(bool val) { HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, (val) ? GPIO_PIN_SET : GPIO_PIN_RESET); }
+void m6dir(bool val) { HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, (val) ? GPIO_PIN_SET : GPIO_PIN_RESET); }
 
 
 static void miscThread(void const *argument)
 {
-	TIM_HandleTypeDef htim;
+	TIM_HandleTypeDef htim2, htim3;
 	int x;
 
 	(void)argument;
 
 	usb_init();
 	gpio_init();
-	pwm_init(&htim);
+	pwm_init(&htim2, TIM2);
+	pwm_init(&htim3, TIM3);
 
 	m1dir(false);
 	m2dir(false);
@@ -261,22 +294,25 @@ static void miscThread(void const *argument)
 	x = 0;
 	while (1) {
 		bool toggle, count_up, blink;
-		osDelay(10);
+		osDelay(5);
 
-		pwm_set(&htim, TIM_CHANNEL_1,         x        );
-		pwm_set(&htim, TIM_CHANNEL_2, (1024 + x) % 2048);
-		pwm_set(&htim, TIM_CHANNEL_3, (1536 + x) % 2048);
+		pwm_set(&htim2, TIM_CHANNEL_1,         x        );
+		pwm_set(&htim2, TIM_CHANNEL_2, ( 256 + x) % 2048);
+		pwm_set(&htim2, TIM_CHANNEL_3, ( 512 + x) % 2048);
+		pwm_set(&htim3, TIM_CHANNEL_1, ( 768 + x) % 2048);
+		pwm_set(&htim3, TIM_CHANNEL_2, (1024 + x) % 2048);
+		pwm_set(&htim3, TIM_CHANNEL_3, (1280 + x) % 2048);
 
 		if (count_up) {
-			x += 16;
+			x++;
 			if (x >= 2048) {
-				x = 2032;
+				x = 2047;
 				count_up = false;
 			}
 		} else {
-			x -= 16;
-			if (x < 16) {
-				x = 16;
+			x--;
+			if (x < 0) {
+				x = 1;
 				count_up = true;
 
 				toggle = ! toggle;
@@ -286,7 +322,7 @@ static void miscThread(void const *argument)
 
 
 		/* blinky */
-		if ((x % 10) == 0) {
+		if ((x % 20) == 0) {
 			if (blink) {
 				blink = false;
 				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_10, GPIO_PIN_RESET);
@@ -296,7 +332,7 @@ static void miscThread(void const *argument)
 			}
 		}
 
-		if ((x % 250) == 0) {
+		if ((x % 500) == 0) {
 			printf("Foo (%d)\n", osKernelSysTick());
 		}
 	};
